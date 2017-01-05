@@ -1,6 +1,6 @@
 ---
 name: vizceral
 
-dependencies: [nodejs]
+dependencies: []
 
 files: [vizceral/*]

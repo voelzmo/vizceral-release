@@ -4,6 +4,6 @@ name: vizceral
 templates:
   vizceral_ctl.erb: bin/vizceral_ctl
 
-packages: [vizceral, common]
+packages: [vizceral, nodejs, common]
 
 properties: {}
