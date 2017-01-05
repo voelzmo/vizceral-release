@@ -3,4 +3,4 @@ blobstore:
   provider: s3
   options:
     bucket_name: sap-boshreleases
-name: vizceral-release
+name: vizceral
