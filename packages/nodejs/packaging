@@ -1,3 +1,4 @@
 set -e
 
-tar -xzvf nodejs/node-v6.9.3-linux-x64.tar.gz -C ${BOSH_INSTALL_TARGET}
+tar -xzvf nodejs/node-v6.9.3-linux-x64.tar.gz
+cp -a node-v6.9.3-linux-x64/* ${BOSH_INSTALL_TARGET}
