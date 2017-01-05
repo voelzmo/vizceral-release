@@ -17,8 +17,8 @@ case $1 in
     echo $$ > $PIDFILE
 
     pushd /var/vcap/packages/vizceral/
-    
-    exec /var/vcap/packages/nodejs/bin/npm run dev \
+
+    PATH=/var/vcap/packages/nodejs/bin/:$PATH exec npm run dev \
     1>>$LOG_DIR/stdout.log \
     2>>$LOG_DIR/stderr.log
 

@@ -1,5 +1,5 @@
 set -e
 
-cp -a vizceral/* ${BOSH_INSTALL_TARGET}
 cd vizceral
 PATH=/var/vcap/packages/nodejs/bin/:$PATH npm install
+cp -a vizceral/* ${BOSH_INSTALL_TARGET}

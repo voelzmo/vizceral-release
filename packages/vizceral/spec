@@ -3,4 +3,4 @@ name: vizceral
 
 dependencies: [nodejs]
 
-files: [vizceral/**]
+files: [vizceral/**, vizceral/.babelrc]
