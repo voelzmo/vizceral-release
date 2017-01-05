@@ -1,0 +1,6 @@
+---
+name: nodejs
+
+dependencies: []
+
+files: [nodejs/node-v6.9.3-linux-x64.tar.gz]

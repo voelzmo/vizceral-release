@@ -1,0 +1,36 @@
+#!/bin/bash
+
+RUN_DIR=/var/vcap/sys/run/vizceral
+LOG_DIR=/var/vcap/sys/log/vizceral
+PIDFILE=${RUN_DIR}/pid
+
+source /var/vcap/packages/common/utils.sh
+
+case $1 in
+
+  start)
+    pid_guard $PIDFILE "vizceral"
+
+    mkdir -p $RUN_DIR $LOG_DIR
+    chown -R vcap:vcap $RUN_DIR $LOG_DIR
+
+    echo $$ > $PIDFILE
+
+    pushd /var/vcap/packages/vizceral/
+    
+    exec /var/vcap/packages/nodejs/bin/npm run dev \
+    1>>$LOG_DIR/stdout.log \
+    2>>$LOG_DIR/stderr.log
+
+    popd
+    ;;
+
+  stop)
+    kill_and_wait $PIDFILE
+
+    ;;
+
+  *)
+    echo "Usage: ctl {start|stop}" ;;
+
+esac
