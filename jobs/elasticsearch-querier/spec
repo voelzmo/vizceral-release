@@ -1,0 +1,11 @@
+---
+name: elasticsearch-querier
+
+templates:
+  elasticsearch_querier_ctl.erb: bin/elasticsearch_querier_ctl
+
+packages: [elasticsearch-querier, nodejs, common]
+
+properties:
+  elastic_ip:
+    description: "IP of the elasticsearch server to query"

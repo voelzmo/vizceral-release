@@ -1,0 +1,7 @@
+set -e
+
+pushd elasticsearch-querier
+PATH=/var/vcap/packages/nodejs/bin/:$PATH npm install
+popd
+
+cp -a elasticsearch-querier/. ${BOSH_INSTALL_TARGET}

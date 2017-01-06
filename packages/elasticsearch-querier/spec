@@ -1,0 +1,6 @@
+---
+name: elasticsearch-querier
+
+dependencies: [nodejs]
+
+files: [elasticsearch-querier/*]
