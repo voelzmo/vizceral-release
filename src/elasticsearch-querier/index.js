@@ -61,7 +61,7 @@ app.get('/query-elasticsearch', function (req, res) {
 
 });
 
-app.listen(8080, function () {
+app.listen(8081, function () {
     console.log('Server started');
 });
 
