@@ -16,6 +16,9 @@ instance_groups:
   azs: [z1]
   jobs:
     - name: vizceral
+    - name: elasticsearch-querier
+      properties:
+        elastic_ip: <replace-me>
   vm_type: default
   stemcell: default
   networks:
