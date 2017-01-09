@@ -35,17 +35,28 @@ app.get('/query-elasticsearch', function (req, res) {
 
 
     Promise.all([incoming_request_data, outgoing_request_data]).then(function (responses) {
+        console.log("all promises returned");
         incoming_request_results = responses[0].aggregations.destinations.buckets;
+        console.log(`incoming results '${incoming_request_results}'`);
         outgoing_request_results = responses[1].aggregations.sources.buckets;
-
+        console.log(`outgoing results '${outgoing_request_results}'`);
         incoming_request_results.forEach(function (node) {
             // add source node to the node list if not already in it
-            if (nodes.find((n) => { return n.name == node.key; }) === undefined) {
-                nodes.push({
+            existing_node = nodes.find((n) => { return n.name == node.key; })
+            if (existing_node === undefined) {
+                new_node = {
                     name: node.key,
                     metadata: {},
                     renderer: "focusedChild"
-                });
+                };
+                if (node.tags && node.tags.length > 0) {
+                    new_node.displayName = node.tags[0];
+                }
+                nodes.push(new_node);
+            } else {
+                if (node.tags && node.tags.length > 0) {
+                    existing_node.displayName = node.tags[0];
+                }
             }
             node.sources.buckets.forEach(function (connection) {
                 connections.push({ source: connection.key, target: node.key, metrics: { normal: connection.doc_count } });
@@ -58,12 +69,21 @@ app.get('/query-elasticsearch', function (req, res) {
 
         outgoing_request_results.forEach(function (node) {
             // add destination node to the node list if not already in it
-            if (nodes.find((n) => { return n.name == node.key; }) === undefined) {
-                nodes.push({
+            existing_node = nodes.find((n) => { return n.name == node.key; })
+            if (existing_node === undefined) {
+                new_node = {
                     name: node.key,
                     metadata: {},
                     renderer: "focusedChild"
-                });
+                };
+                if (node.tags && node.tags.length > 0) {
+                    new_node.displayName = node.tags[0];
+                }
+                nodes.push(new_node);
+            } else {
+                if (node.tags && node.tags.length > 0) {
+                    existing_node.displayName = node.tags[0];
+                }
             }
             node.destinations.buckets.forEach(function (connection) {
 
