@@ -68,6 +68,7 @@ app.get('/query-elasticsearch', function (req, res) {
                     name: 'marcos-region',
                     // Unix timestamp. Only checked at this level of nodes. Last time the data was updated (Needed because the client could be passed stale data when loaded)
                     updated: Date.now(),
+                    metadata: {},
                     // The maximum volume seen recently to relatively measure particle density
                     maxVolume: 100000,
                     nodes: nodes,
