@@ -25,64 +25,90 @@ app.use(function (req, res, next) {
 });
 
 app.get('/query-elasticsearch', function (req, res) {
+    nodes = [{
+        name: 'INTERNET' // Required... this is the entry node
+    }];
+    connections = [];
 
-    data = getElasticsearchData(elastic_ip);
-    data.then(function (resp) {
-        // console.log(util.inspect(resp.aggregations.destinations.buckets, { depth: null }));
-        results = resp.aggregations.destinations.buckets;
+    incoming_request_data = getIncomingRequests(elastic_ip);
+    outgoing_request_data = getOutgoingRequests(elastic_ip);
 
-        nodes = [{
-            name: 'INTERNET' // Required... this is the entry node
-        }];
-        connections = [];
-        results.forEach(function (node) {
+
+    Promise.all([incoming_request_data, outgoing_request_data]).then(function (responses) {
+        incoming_request_results = responses[0].aggregations.destinations.buckets;
+        outgoing_request_results = responses[1].aggregations.sources.buckets;
+
+        incoming_request_results.forEach(function (node) {
+            // add source node to the node list if not already in it
             if (nodes.find((n) => { return n.name == node.key; }) === undefined) {
-                nodes.push({ name: node.key ,
-                metadata: {
-                  "streaming": 1
-                },
-                renderer: "focusedChild"
-              });
+                nodes.push({
+                    name: node.key,
+                    metadata: {},
+                    renderer: "focusedChild"
+                });
             }
-            node.from.buckets.forEach(function (connection) {
+            node.sources.buckets.forEach(function (connection) {
                 connections.push({ source: connection.key, target: node.key, metrics: { normal: connection.doc_count } });
-                // add both nodes to the node list if they're not already in it
+                // add destination node to the node list if not already in it
                 if (nodes.find((n) => { return n.name == connection.key; }) === undefined) {
                     nodes.push({ name: connection.key });
                 }
             }, this);
         }, this);
 
-
-        vizceral_data = {
-            // Which graph renderer to use for this graph (currently only 'global' and 'region')
-            renderer: 'global',
-            // since the root object is a node, it has a name too.
-            name: 'edge',
-            // OPTIONAL: The maximum volume seen recently to relatively measure particle density. This 'global' maxVolume is optional because it can be calculated by using all of the required sub-node maxVolumes.
-            maxVolume: 100000,
-            // list of nodes for this graph
-            nodes: [
-                {
-                    renderer: 'region',
-                    layout: 'ltrTree',
-                    // OPTIONAL Override the default layout used for the renderer.
-                    name: 'marcos-region',
-                    // Unix timestamp. Only checked at this level of nodes. Last time the data was updated (Needed because the client could be passed stale data when loaded)
-                    updated: Date.now(),
+        outgoing_request_results.forEach(function (node) {
+            // add destination node to the node list if not already in it
+            if (nodes.find((n) => { return n.name == node.key; }) === undefined) {
+                nodes.push({
+                    name: node.key,
                     metadata: {},
-                    // The maximum volume seen recently to relatively measure particle density
-                    maxVolume: 100000,
-                    nodes: nodes,
-                    connections: connections
+                    renderer: "focusedChild"
+                });
+            }
+            node.destinations.buckets.forEach(function (connection) {
+
+                // we have already added connections from the incoming point of view. Make sure we don't add them from the other side as well.
+                if (connections.find((c) => { return c.source == connection.key && c.target == node.key }) === undefined) {
+                    connections.push({ source: connection.key, target: node.key, metrics: { normal: connection.doc_count } });
                 }
-            ]
-        };
-        console.log(util.inspect(vizceral_data, { depth: null }));
-        res.send(vizceral_data);
+
+                // add source node to the node list if not already in it
+                if (nodes.find((n) => { return n.name == connection.key; }) === undefined) {
+                    nodes.push({ name: connection.key });
+                }
+            }, this);
+        }, this);
+
     }, function (err) {
         console.trace(err.message);
     });
+
+    vizceral_data = {
+        // Which graph renderer to use for this graph (currently only 'global' and 'region')
+        renderer: 'global',
+        // since the root object is a node, it has a name too.
+        name: 'edge',
+        // OPTIONAL: The maximum volume seen recently to relatively measure particle density. This 'global' maxVolume is optional because it can be calculated by using all of the required sub-node maxVolumes.
+        maxVolume: 100000,
+        // list of nodes for this graph
+        nodes: [
+            {
+                renderer: 'region',
+                layout: 'ltrTree',
+                // OPTIONAL Override the default layout used for the renderer.
+                name: 'bosh-region',
+                // Unix timestamp. Only checked at this level of nodes. Last time the data was updated (Needed because the client could be passed stale data when loaded)
+                updated: Date.now(),
+                metadata: {},
+                // The maximum volume seen recently to relatively measure particle density
+                maxVolume: 100000,
+                nodes: nodes,
+                connections: connections
+            }
+        ]
+    };
+    console.log(util.inspect(vizceral_data, { depth: null }));
+    res.send(vizceral_data);
 
 });
 
@@ -90,25 +116,12 @@ app.listen(8081, function () {
     console.log('Server started');
 });
 
-function getElasticsearchData(elastic_ip) {
+function getIncomingRequests(elastic_ip) {
     var response;
 
-    console.log("starting converter");
-
     var client = elasticsearch.Client({ host: `${elastic_ip}:9200`, apiVersion: "2.3" });
-    // client.ping({
-    //     // ping usually has a 3000ms timeout
-    //     requestTimeout: Infinity
-    // }, function (error) {
-    //     if (error) {
-    //         console.trace('elasticsearch cluster is down!');
-    //     } else {
-    //         console.log('All is well');
-    //     }
-    // });
 
-
-   return client.search({
+    return client.search({
         index: 'packetbeat-*',
         body: {
             "size": 0,
@@ -118,9 +131,70 @@ function getElasticsearchData(elastic_ip) {
                         "field": "dest.ip"
                     },
                     "aggregations": {
-                        "from": {
+                        "sources": {
                             "terms": {
                                 "field": "source.ip"
+                            }
+                        }
+                    }
+                }
+            },
+            "query": {
+                "bool": {
+                    "filter": {
+                        "bool": {
+                            "must": [
+                                {
+                                    "range": {
+                                        "@timestamp": {
+                                            "gt": "now-1h"
+                                        }
+                                    }
+                                },
+                                {
+                                    "exists": {
+                                        "field": "dest.ip"
+                                    }
+                                }
+                            ],
+                            "must_not": [
+                                {
+                                    "term": {
+                                        "dest.port": "9200"
+                                    }
+                                },
+                                {
+                                    "term": {
+                                        "dest.ip": "127.0.0.1"
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function getOutgoingRequests(elastic_ip) {
+    var response;
+
+    var client = elasticsearch.Client({ host: `${elastic_ip}:9200`, apiVersion: "2.3" });
+
+    return client.search({
+        index: 'packetbeat-*',
+        body: {
+            "size": 0,
+            "aggregations": {
+                "sources": {
+                    "terms": {
+                        "field": "source.ip"
+                    },
+                    "aggregations": {
+                        "destinations": {
+                            "terms": {
+                                "field": "dest.ip"
                             }
                         }
                     }
