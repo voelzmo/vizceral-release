@@ -1,0 +1,5 @@
+check process elasticsearch-querier
+  with pidfile /var/vcap/sys/run/elasticsearch-querier/pid
+  start program "/var/vcap/jobs/elasticsearch-querier/bin/elasticsearch_querier_ctl start"
+  stop program "/var/vcap/jobs/elasticsearch-querier/bin/elasticsearch_querier_ctl stop"
+  group vcap

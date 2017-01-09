@@ -1,0 +1,5 @@
+check process vizceral
+  with pidfile /var/vcap/sys/run/vizceral/pid
+  start program "/var/vcap/jobs/vizceral/bin/vizceral_ctl start"
+  stop program "/var/vcap/jobs/vizceral/bin/vizceral_ctl stop"
+  group vcap

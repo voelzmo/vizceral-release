@@ -40,7 +40,9 @@ app.get('/query-elasticsearch', function (req, res) {
                 nodes.push({ name: node.key ,
                 metadata: {
                   "streaming": 1
-                },});
+                },
+                renderer: "focusedChild"
+              });
             }
             node.from.buckets.forEach(function (connection) {
                 connections.push({ source: connection.key, target: node.key, metrics: { normal: connection.doc_count } });
