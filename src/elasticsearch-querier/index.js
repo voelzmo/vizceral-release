@@ -37,7 +37,10 @@ app.get('/query-elasticsearch', function (req, res) {
         connections = [];
         results.forEach(function (node) {
             if (nodes.find((n) => { return n.name == node.key; }) === undefined) {
-                nodes.push({ name: node.key });
+                nodes.push({ name: node.key ,
+                metadata: {
+                  "streaming": 1
+                },});
             }
             node.from.buckets.forEach(function (connection) {
                 connections.push({ source: connection.key, target: node.key, metrics: { normal: connection.doc_count } });
@@ -64,7 +67,7 @@ app.get('/query-elasticsearch', function (req, res) {
                     // OPTIONAL Override the default layout used for the renderer.
                     name: 'marcos-region',
                     // Unix timestamp. Only checked at this level of nodes. Last time the data was updated (Needed because the client could be passed stale data when loaded)
-                    updated: 1462471847,
+                    updated: Date.now(),
                     // The maximum volume seen recently to relatively measure particle density
                     maxVolume: 100000,
                     nodes: nodes,
