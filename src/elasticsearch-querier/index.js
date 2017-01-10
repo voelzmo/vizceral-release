@@ -25,111 +25,94 @@ app.use(function (req, res, next) {
 });
 
 app.get('/query-elasticsearch', function (req, res) {
-    nodes = [{
-        name: 'INTERNET' // Required... this is the entry node
-    }];
-    connections = [];
 
-    incoming_request_data = getIncomingRequests(elastic_ip);
-    outgoing_request_data = getOutgoingRequests(elastic_ip);
+    function addOrUpdateNodeInList(node, listOfNodes) {
+        existing_node = listOfNodes.find((n) => { return n.name == node.key; })
+        if (existing_node === undefined) {
+            new_node = {
+                name: node.key,
+                metadata: {},
+                renderer: "focusedChild"
+            };
+            // if (node.tags && node.tags.length > 0) {
+            //     new_node.displayName = node.tags[0];
+            // }
+            listOfNodes.push(new_node);
+        // } else {
+        //     if (node.tags && node.tags.length > 0) {
+        //         existing_node.displayName = node.tags[0];
+        //     }
+        }
+    }
 
+        nodes = [{
+            name: 'INTERNET' // Required... this is the entry node
+        }];
+        connections = [];
 
-    Promise.all([incoming_request_data, outgoing_request_data]).then(function (responses) {
-        console.log("all promises returned");
-        incoming_request_results = responses[0].aggregations.destinations.buckets;
-        console.log(`incoming results '${incoming_request_results}'`);
-        outgoing_request_results = responses[1].aggregations.sources.buckets;
-        console.log(`outgoing results '${outgoing_request_results}'`);
-        incoming_request_results.forEach(function (node) {
+        incoming_request_data = getIncomingRequests(elastic_ip);
+        outgoing_request_data = getOutgoingRequests(elastic_ip);
+
+        Promise.all([incoming_request_data, outgoing_request_data]).then(function (responses) {
+            console.log("all promises returned");
+            incoming_request_results = responses[0].aggregations.destinations.buckets;
+            console.log(`incoming results '${util.inspect(incoming_request_results, { depth: null })}'`);
+            outgoing_request_results = responses[1].aggregations.sources.buckets;
+            console.log(`outgoing results '${util.inspect(outgoing_request_results, { depth: null })}'`);
+
+            // processRequestResults(incoming_request_results, connections, nodes);
+            // processRequestResults(outgoing_request_results, connections, nodes);
+
+            incoming_request_results.forEach(function (node) {
             // add source node to the node list if not already in it
-            existing_node = nodes.find((n) => { return n.name == node.key; })
-            if (existing_node === undefined) {
-                new_node = {
-                    name: node.key,
-                    metadata: {},
-                    renderer: "focusedChild"
-                };
-                if (node.tags && node.tags.length > 0) {
-                    new_node.displayName = node.tags[0];
-                }
-                nodes.push(new_node);
-            } else {
-                if (node.tags && node.tags.length > 0) {
-                    existing_node.displayName = node.tags[0];
-                }
-            }
+            addOrUpdateNodeInList(node, nodes);
             node.sources.buckets.forEach(function (connection) {
                 connections.push({ source: connection.key, target: node.key, metrics: { normal: connection.doc_count } });
                 // add destination node to the node list if not already in it
-                if (nodes.find((n) => { return n.name == connection.key; }) === undefined) {
-                    nodes.push({ name: connection.key });
-                }
+                addOrUpdateNodeInList(connection, nodes);
             }, this);
         }, this);
 
         outgoing_request_results.forEach(function (node) {
-            // add destination node to the node list if not already in it
-            existing_node = nodes.find((n) => { return n.name == node.key; })
-            if (existing_node === undefined) {
-                new_node = {
-                    name: node.key,
-                    metadata: {},
-                    renderer: "focusedChild"
-                };
-                if (node.tags && node.tags.length > 0) {
-                    new_node.displayName = node.tags[0];
-                }
-                nodes.push(new_node);
-            } else {
-                if (node.tags && node.tags.length > 0) {
-                    existing_node.displayName = node.tags[0];
-                }
-            }
+            // add source node to the node list if not already in it
+            addOrUpdateNodeInList(node, nodes);
             node.destinations.buckets.forEach(function (connection) {
-
-                // we have already added connections from the incoming point of view. Make sure we don't add them from the other side as well.
-                if (connections.find((c) => { return c.source == connection.key && c.target == node.key }) === undefined) {
-                    connections.push({ source: connection.key, target: node.key, metrics: { normal: connection.doc_count } });
-                }
-
-                // add source node to the node list if not already in it
-                if (nodes.find((n) => { return n.name == connection.key; }) === undefined) {
-                    nodes.push({ name: connection.key });
-                }
+                connections.push({ source: connection.key, target: node.key, metrics: { normal: connection.doc_count } });
+                // add destination node to the node list if not already in it
+                addOrUpdateNodeInList(connection, nodes);
             }, this);
         }, this);
 
-    }, function (err) {
-        console.trace(err.message);
-    });
-
-    vizceral_data = {
-        // Which graph renderer to use for this graph (currently only 'global' and 'region')
-        renderer: 'global',
-        // since the root object is a node, it has a name too.
-        name: 'edge',
-        // OPTIONAL: The maximum volume seen recently to relatively measure particle density. This 'global' maxVolume is optional because it can be calculated by using all of the required sub-node maxVolumes.
-        maxVolume: 100000,
-        // list of nodes for this graph
-        nodes: [
-            {
-                renderer: 'region',
-                layout: 'ltrTree',
-                // OPTIONAL Override the default layout used for the renderer.
-                name: 'bosh-region',
-                // Unix timestamp. Only checked at this level of nodes. Last time the data was updated (Needed because the client could be passed stale data when loaded)
-                updated: Date.now(),
-                metadata: {},
-                // The maximum volume seen recently to relatively measure particle density
+            vizceral_data = {
+                // Which graph renderer to use for this graph (currently only 'global' and 'region')
+                renderer: 'global',
+                // since the root object is a node, it has a name too.
+                name: 'edge',
+                // OPTIONAL: The maximum volume seen recently to relatively measure particle density. This 'global' maxVolume is optional because it can be calculated by using all of the required sub-node maxVolumes.
                 maxVolume: 100000,
-                nodes: nodes,
-                connections: connections
-            }
-        ]
-    };
-    console.log(util.inspect(vizceral_data, { depth: null }));
-    res.send(vizceral_data);
+                // list of nodes for this graph
+                nodes: [
+                    {
+                        renderer: 'region',
+                        layout: 'ltrTree',
+                        // OPTIONAL Override the default layout used for the renderer.
+                        name: 'bosh-region',
+                        // Unix timestamp. Only checked at this level of nodes. Last time the data was updated (Needed because the client could be passed stale data when loaded)
+                        updated: Date.now(),
+                        metadata: {},
+                        // The maximum volume seen recently to relatively measure particle density
+                        maxVolume: 100000,
+                        nodes: nodes,
+                        connections: connections
+                    }
+                ]
+            };
+            console.log(`data that will be sent to the user '${util.inspect(vizceral_data, { depth: null })}'`);
+            res.send(vizceral_data);
 
+        }, function (err) {
+            console.trace(err.message);
+        }).catch(console.trace);
 });
 
 app.listen(8081, function () {
