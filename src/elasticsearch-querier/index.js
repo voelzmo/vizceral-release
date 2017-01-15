@@ -27,182 +27,107 @@ app.use(function (req, res, next) {
 app.get('/query-elasticsearch', function (req, res) {
 
     function addOrUpdateNodeInList(node, listOfNodes) {
-        existing_node = listOfNodes.find((n) => { return n.name == node.key; })
+        existing_node = listOfNodes.find((n) => { return n.displayName == node.key; })
         if (existing_node === undefined) {
             new_node = {
                 name: node.key,
+                displayName: node.key,
                 metadata: {},
                 renderer: "focusedChild"
             };
-            // if (node.tags && node.tags.length > 0) {
-            //     new_node.displayName = node.tags[0];
-            // }
             listOfNodes.push(new_node);
-        // } else {
-        //     if (node.tags && node.tags.length > 0) {
-        //         existing_node.displayName = node.tags[0];
-        //     }
         }
     }
 
-        nodes = [{
-            name: 'INTERNET' // Required... this is the entry node
-        }];
-        connections = [];
+    nodes = [{
+        name: 'INTERNET' // Required... this is the entry node
+    }];
+    connections = [];
 
-        incoming_request_data = getIncomingRequests(elastic_ip);
-        outgoing_request_data = getOutgoingRequests(elastic_ip);
-
-        Promise.all([incoming_request_data, outgoing_request_data]).then(function (responses) {
-            console.log("all promises returned");
-            incoming_request_results = responses[0].aggregations.destinations.buckets;
-            console.log(`incoming results '${util.inspect(incoming_request_results, { depth: null })}'`);
-            outgoing_request_results = responses[1].aggregations.sources.buckets;
-            console.log(`outgoing results '${util.inspect(outgoing_request_results, { depth: null })}'`);
-
-            // processRequestResults(incoming_request_results, connections, nodes);
-            // processRequestResults(outgoing_request_results, connections, nodes);
-
-            incoming_request_results.forEach(function (node) {
+    requestsByNode = getRequestsByNode(elastic_ip);
+    requestsByNode.then(function (response) {
+        request_nodes = response.aggregations.nodes.buckets;
+        console.log(util.inspect(request_nodes, { depth: null }));
+        request_nodes.forEach(function (node) {
             // add source node to the node list if not already in it
             addOrUpdateNodeInList(node, nodes);
-            node.sources.buckets.forEach(function (connection) {
-                connections.push({ source: connection.key, target: node.key, metrics: { normal: connection.doc_count } });
-                // add destination node to the node list if not already in it
-                addOrUpdateNodeInList(connection, nodes);
-            }, this);
-        }, this);
 
-        outgoing_request_results.forEach(function (node) {
-            // add source node to the node list if not already in it
-            addOrUpdateNodeInList(node, nodes);
-            node.destinations.buckets.forEach(function (connection) {
-                connections.push({ source: connection.key, target: node.key, metrics: { normal: connection.doc_count } });
-                // add destination node to the node list if not already in it
-                addOrUpdateNodeInList(connection, nodes);
-            }, this);
-        }, this);
-
-            vizceral_data = {
-                // Which graph renderer to use for this graph (currently only 'global' and 'region')
-                renderer: 'global',
-                // since the root object is a node, it has a name too.
-                name: 'edge',
-                // OPTIONAL: The maximum volume seen recently to relatively measure particle density. This 'global' maxVolume is optional because it can be calculated by using all of the required sub-node maxVolumes.
-                maxVolume: 100000,
-                // list of nodes for this graph
-                nodes: [
-                    {
-                        renderer: 'region',
-                        layout: 'ltrTree',
-                        // OPTIONAL Override the default layout used for the renderer.
-                        name: 'bosh-region',
-                        // Unix timestamp. Only checked at this level of nodes. Last time the data was updated (Needed because the client could be passed stale data when loaded)
-                        updated: Date.now(),
-                        metadata: {},
-                        // The maximum volume seen recently to relatively measure particle density
-                        maxVolume: 100000,
-                        nodes: nodes,
-                        connections: connections
+            //add http connections
+            node.http.sources.buckets.forEach(function (connection) {
+                connectionMetrics = connection.transactionStatus.buckets.reduce((metrics, status) => {
+                    if (status.key == "OK") {
+                        metrics.normal += status.doc_count;
+                    } else if (status.key == "ERROR") {
+                        metrics.error += status.doc_count;
+                    } else {
+                        console.log(`found unhandled transaction status '${status.key}'`)
                     }
-                ]
-            };
-            console.log(`data that will be sent to the user '${util.inspect(vizceral_data, { depth: null })}'`);
-            res.send(vizceral_data);
+                    return metrics;
+                }, { normal: 0, error: 0, metadata: { request_type: "http" } });
+                connections.push({ source: connection.key, target: node.key, metrics: connectionMetrics });
+                // add destination node to the node list if not already in it
+                addOrUpdateNodeInList(connection, nodes);
+            }, this);
 
-        }, function (err) {
-            console.trace(err.message);
-        }).catch(console.trace);
+            // add generic tcp flow connections
+            node.flows.sources.buckets.forEach(function (connection) {
+                existingConnection = connections.find((c) => { return (c.source == connection.key && c.target == node.key); });
+                if (existingConnection === undefined) {
+                    connections.push({ source: connection.key, target: node.key, metrics: { normal: connection.doc_count, metadata: { request_type: "flow" } } });
+                } else {
+                    existingConnection.metrics.normal += connection.doc_count;
+                }
+                // add destination node to the node list if not already in it
+                addOrUpdateNodeInList(connection, nodes);
+            }, this);
+
+        }, this);
+
+        vizceral_data = {
+            // Which graph renderer to use for this graph (currently only 'global' and 'region')
+            renderer: 'global',
+            // since the root object is a node, it has a name too.
+            name: 'edge',
+            // OPTIONAL: The maximum volume seen recently to relatively measure particle density. This 'global' maxVolume is optional because it can be calculated by using all of the required sub-node maxVolumes.
+            maxVolume: 100000,
+            // list of nodes for this graph
+            nodes: [
+                {
+                    renderer: 'region',
+                    layout: 'ltrTree',
+                    // OPTIONAL Override the default layout used for the renderer.
+                    name: 'bosh-region',
+                    // Unix timestamp. Only checked at this level of nodes. Last time the data was updated (Needed because the client could be passed stale data when loaded)
+                    updated: Date.now(),
+                    metadata: {},
+                    // The maximum volume seen recently to relatively measure particle density
+                    maxVolume: 100000,
+                    nodes: nodes,
+                    connections: connections
+                }
+            ]
+        };
+        console.log(`data that will be sent to the user '${util.inspect(vizceral_data, { depth: null })}'`);
+        res.send(vizceral_data);
+
+    }).catch(console.trace);
 });
 
 app.listen(8081, function () {
     console.log('Server started');
 });
 
-function getIncomingRequests(elastic_ip) {
-    var response;
-
-    var client = elasticsearch.Client({ host: `${elastic_ip}:9200`, apiVersion: "2.3" });
-
-    return client.search({
-        index: 'packetbeat-*',
-        body: {
-            "size": 0,
-            "aggregations": {
-                "destinations": {
-                    "terms": {
-                        "field": "dest.ip"
-                    },
-                    "aggregations": {
-                        "sources": {
-                            "terms": {
-                                "field": "source.ip"
-                            }
-                        }
-                    }
-                }
-            },
-            "query": {
-                "bool": {
-                    "filter": {
-                        "bool": {
-                            "must": [
-                                {
-                                    "range": {
-                                        "@timestamp": {
-                                            "gt": "now-1h"
-                                        }
-                                    }
-                                },
-                                {
-                                    "exists": {
-                                        "field": "dest.ip"
-                                    }
-                                }
-                            ],
-                            "must_not": [
-                                {
-                                    "term": {
-                                        "dest.port": "9200"
-                                    }
-                                },
-                                {
-                                    "term": {
-                                        "dest.ip": "127.0.0.1"
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        }
-    });
+function getTagForIP(ipAddress, listOfNodes) {
+    existing_node = listOfNodes.find((n) => { return n.name == ipAddress; })
 }
 
-function getOutgoingRequests(elastic_ip) {
-    var response;
-
+function getRequestsByNode(elastic_ip) {
     var client = elasticsearch.Client({ host: `${elastic_ip}:9200`, apiVersion: "2.3" });
 
     return client.search({
         index: 'packetbeat-*',
         body: {
             "size": 0,
-            "aggregations": {
-                "sources": {
-                    "terms": {
-                        "field": "source.ip"
-                    },
-                    "aggregations": {
-                        "destinations": {
-                            "terms": {
-                                "field": "dest.ip"
-                            }
-                        }
-                    }
-                }
-            },
             "query": {
                 "bool": {
                     "filter": {
@@ -210,29 +135,81 @@ function getOutgoingRequests(elastic_ip) {
                             "must": [
                                 {
                                     "range": {
-                                        "@timestamp": {
-                                            "gt": "now-1h"
-                                        }
-                                    }
-                                },
-                                {
-                                    "exists": {
-                                        "field": "dest.ip"
-                                    }
-                                }
-                            ],
-                            "must_not": [
-                                {
-                                    "term": {
-                                        "dest.port": "9200"
-                                    }
-                                },
-                                {
-                                    "term": {
-                                        "dest.ip": "127.0.0.1"
+                                        "@timestamp": { "gt": "now-1h" }
                                     }
                                 }
                             ]
+                        }
+                    }
+                }
+            },
+            "aggregations": {
+                "nodes": {
+                    "terms": { "field": "tags" },
+                    "aggregations": {
+                        "ipAddresses": {
+                            "terms": { "field": "fields.ip" }
+                        },
+                        "flows": {
+                            "filter": {
+                                "bool": {
+                                    "must": [
+                                        {
+                                            "exists": { "field": "dest.ip" }
+                                        },
+                                        {
+                                            "term": { "type": "flow" }
+                                        }
+                                    ],
+                                    "must_not": [
+                                        {
+                                            "term": { "dest.port": "9200" }
+                                        },
+                                        {
+                                            "term": { "dest.ip": "127.0.0.1" }
+                                        }
+                                    ]
+                                }
+                            },
+                            "aggregations": {
+                                "sources": {
+                                    "terms": { "field": "source.ip" }
+                                },
+                                "destinations": {
+                                    "terms": { "field": "dest.ip" }
+                                }
+                            }
+                        },
+                        "http": {
+                            "filter": {
+                                "bool": {
+                                    "must": [
+                                        {
+                                            "term": { "type": "http" }
+                                        },
+                                        {
+                                            "term": { "direction": "in" }
+                                        }
+                                    ],
+                                    "must_not": [
+                                        {
+                                            "term": { "ip": "127.0.0.1" }
+                                        }
+                                    ]
+                                }
+                            },
+                            "aggregations": {
+                                "sources": {
+                                    "terms": {
+                                        "field": "client_ip"
+                                    },
+                                    "aggregations": {
+                                        "transactionStatus": {
+                                            "terms": { "field": "status" }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
