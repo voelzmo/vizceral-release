@@ -63,8 +63,8 @@ app.get('/query-elasticsearch', function (req, res) {
                         console.log(`found unhandled transaction status '${status.key}'`)
                     }
                     return metrics;
-                }, { normal: 0, error: 0, metadata: { request_type: "http" } });
-                connections.push({ source: connection.key, target: node.key, metrics: connectionMetrics });
+                }, { normal: 0, error: 0 });
+                connections.push({ source: connection.key, target: node.key, metrics: connectionMetrics, metadata: { request_type: "http" } });
                 // add destination node to the node list if not already in it
                 addOrUpdateNodeInList(connection, nodes);
             }, this);
@@ -73,7 +73,7 @@ app.get('/query-elasticsearch', function (req, res) {
             node.flows.sources.buckets.forEach(function (connection) {
                 existingConnection = connections.find((c) => { return (c.source == connection.key && c.target == node.key); });
                 if (existingConnection === undefined) {
-                    connections.push({ source: connection.key, target: node.key, metrics: { normal: connection.doc_count, metadata: { request_type: "flow" } } });
+                    connections.push({ source: connection.key, target: node.key, metrics: { normal: connection.doc_count},  metadata: { request_type: "flow" }  });
                 } else {
                     existingConnection.metrics.normal += connection.doc_count;
                 }
