@@ -26,12 +26,11 @@ app.use(function (req, res, next) {
 
 app.get('/query-elasticsearch', function (req, res) {
 
-    function addOrUpdateNodeInList(node, listOfNodes) {
-        existing_node = listOfNodes.find((n) => { return n.displayName == node.key; })
+    function addOrUpdateNodeInList(nodeIPAddress, listOfNodes) {
+        existing_node = listOfNodes.find((n) => { return n.name == nodeIPAddress; })
         if (existing_node === undefined) {
             new_node = {
-                name: node.key,
-                displayName: node.key,
+                name: nodeIPAddress,
                 metadata: {},
                 renderer: "focusedChild"
             };
@@ -39,21 +38,34 @@ app.get('/query-elasticsearch', function (req, res) {
         }
     }
 
+    ipsToTags = {};
+
     nodes = [{
         name: 'INTERNET' // Required... this is the entry node
     }];
     connections = [];
 
+    tagsWithIPs = getTagsWithIPs(elastic_ip);
+    tagsWithIPs.then(function (response) {
+        // console.log(util.inspect(response, { depth: null }));
+        response.aggregations.nodes.buckets.forEach(function (node) {
+            ipsToTags[node.ipAddresses.buckets[0].key] = node.key;
+        }, this);
+        // console.log(util.inspect(ipsToTags, { depth: null }));
+    }).catch(console.trace);;
+
+
     requestsByNode = getRequestsByNode(elastic_ip);
     requestsByNode.then(function (response) {
         request_nodes = response.aggregations.nodes.buckets;
-        console.log(util.inspect(request_nodes, { depth: null }));
+        // console.log(util.inspect(request_nodes, { depth: null }));
         request_nodes.forEach(function (node) {
             // add source node to the node list if not already in it
-            addOrUpdateNodeInList(node, nodes);
+            nodeIPAddress = node.ipAddresses.buckets[0].key;
+            addOrUpdateNodeInList(nodeIPAddress, nodes);
 
-            //add http connections
-            node.http.sources.buckets.forEach(function (connection) {
+            //add incoming http connections
+            node.http_in.sources.buckets.forEach(function (connection) {
                 connectionMetrics = connection.transactionStatus.buckets.reduce((metrics, status) => {
                     if (status.key == "OK") {
                         metrics.normal += status.doc_count;
@@ -64,24 +76,43 @@ app.get('/query-elasticsearch', function (req, res) {
                     }
                     return metrics;
                 }, { normal: 0, error: 0 });
-                connections.push({ source: connection.key, target: node.key, metrics: connectionMetrics, metadata: { request_type: "http" } });
+                connections.push({ source: connection.key, target: nodeIPAddress, metrics: connectionMetrics, metadata: { request_type: "http" } });
+                // add source node to the node list if not already in it
+                addOrUpdateNodeInList(connection.key, nodes);
+            }, this);
+
+            //add outgoing http connections
+            node.http_out.destinations.buckets.forEach(function (connection) {
+                connectionMetrics = connection.transactionStatus.buckets.reduce((metrics, status) => {
+                    if (status.key == "OK") {
+                        metrics.normal += status.doc_count;
+                    } else if (status.key == "ERROR") {
+                        metrics.error += status.doc_count;
+                    } else {
+                        console.log(`found unhandled transaction status '${status.key}'`)
+                    }
+                    return metrics;
+                }, { normal: 0, error: 0 });
+                connections.push({ source: nodeIPAddress, target: connection.key, metrics: connectionMetrics, metadata: { request_type: "http" } });
                 // add destination node to the node list if not already in it
-                addOrUpdateNodeInList(connection, nodes);
+                addOrUpdateNodeInList(connection.key, nodes);
             }, this);
 
             // add generic tcp flow connections
             node.flows.sources.buckets.forEach(function (connection) {
-                existingConnection = connections.find((c) => { return (c.source == connection.key && c.target == node.key); });
+                existingConnection = connections.find((c) => { return (c.source == connection.key && c.target == nodeIPAddress); });
                 if (existingConnection === undefined) {
-                    connections.push({ source: connection.key, target: node.key, metrics: { normal: connection.doc_count},  metadata: { request_type: "flow" }  });
+                    connections.push({ source: connection.key, target: nodeIPAddress, metrics: { normal: connection.doc_count }, metadata: { request_type: "flow" } });
                 } else {
                     existingConnection.metrics.normal += connection.doc_count;
                 }
                 // add destination node to the node list if not already in it
-                addOrUpdateNodeInList(connection, nodes);
+                addOrUpdateNodeInList(connection.key, nodes);
             }, this);
 
         }, this);
+
+        addTagsToNodeList(nodes, ipsToTags);
 
         vizceral_data = {
             // Which graph renderer to use for this graph (currently only 'global' and 'region')
@@ -117,8 +148,37 @@ app.listen(8081, function () {
     console.log('Server started');
 });
 
-function getTagForIP(ipAddress, listOfNodes) {
-    existing_node = listOfNodes.find((n) => { return n.name == ipAddress; })
+function addTagsToNodeList(nodes, ipsToTags) {
+    nodes.forEach(function(node) {
+        tagForIP = ipsToTags[node.name];
+        if (tagForIP !== undefined) {
+            node.displayName = tagForIP;
+        }
+    }, this);
+}
+
+function getTagsWithIPs(elastic_ip) {
+    var client = elasticsearch.Client({ host: `${elastic_ip}:9200`, apiVersion: "2.3" });
+
+    return client.search({
+        index: 'packetbeat-*',
+        body: {
+            "size": 0,
+            "query": {
+                "match_all": {}
+            },
+            "aggregations": {
+                "nodes": {
+                    "terms": { "field": "tags" },
+                    "aggregations": {
+                        "ipAddresses": {
+                            "terms": { "field": "fields.ip" }
+                        }
+                    }
+                }
+            }
+        }
+    });
 }
 
 function getRequestsByNode(elastic_ip) {
@@ -128,21 +188,21 @@ function getRequestsByNode(elastic_ip) {
         index: 'packetbeat-*',
         body: {
             "size": 0,
-            "query": {
-                "bool": {
-                    "filter": {
-                        "bool": {
-                            "must": [
-                                {
-                                    "range": {
-                                        "@timestamp": { "gt": "now-1h" }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
+            // "query": {
+            //     "bool": {
+            //         "filter": {
+            //             "bool": {
+            //                 "must": [
+            //                     {
+            //                         "range": {
+            //                             "@timestamp": { "gt": "now-1h" }
+            //                         }
+            //                     }
+            //                 ]
+            //             }
+            //         }
+            //     }
+            // },
             "aggregations": {
                 "nodes": {
                     "terms": { "field": "tags" },
@@ -180,7 +240,7 @@ function getRequestsByNode(elastic_ip) {
                                 }
                             }
                         },
-                        "http": {
+                        "http_in": {
                             "filter": {
                                 "bool": {
                                     "must": [
@@ -202,6 +262,37 @@ function getRequestsByNode(elastic_ip) {
                                 "sources": {
                                     "terms": {
                                         "field": "client_ip"
+                                    },
+                                    "aggregations": {
+                                        "transactionStatus": {
+                                            "terms": { "field": "status" }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        "http_out": {
+                            "filter": {
+                                "bool": {
+                                    "must": [
+                                        {
+                                            "term": { "type": "http" }
+                                        },
+                                        {
+                                            "term": { "direction": "out" }
+                                        }
+                                    ],
+                                    "must_not": [
+                                        {
+                                            "term": { "ip": "127.0.0.1" }
+                                        }
+                                    ]
+                                }
+                            },
+                            "aggregations": {
+                                "destinations": {
+                                    "terms": {
+                                        "field": "ip"
                                     },
                                     "aggregations": {
                                         "transactionStatus": {
