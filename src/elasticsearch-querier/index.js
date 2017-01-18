@@ -98,11 +98,24 @@ app.get('/query-elasticsearch', function (req, res) {
                 addOrUpdateNodeInList(connection.key, nodes);
             }, this);
 
-            // add generic tcp flow connections
+            // add incoming generic tcp flow connections
             node.flows.sources.buckets.forEach(function (connection) {
                 existingConnection = connections.find((c) => { return (c.source == connection.key && c.target == nodeIPAddress); });
                 if (existingConnection === undefined) {
                     connections.push({ source: connection.key, target: nodeIPAddress, metrics: { normal: connection.doc_count }, metadata: { request_type: "flow" } });
+                } else {
+                    existingConnection.metrics.normal += connection.doc_count;
+                }
+                // add source node to the node list if not already in it
+                addOrUpdateNodeInList(connection.key, nodes);
+            }, this);
+
+
+            // add outgoing generic tcp flow connections
+            node.flows.destinations.buckets.forEach(function (connection) {
+                existingConnection = connections.find((c) => { return (c.source == nodeIPAddress && c.target == connection.key); });
+                if (existingConnection === undefined) {
+                    connections.push({ source: nodeIPAddress, target: connection.key, metrics: { normal: connection.doc_count }, metadata: { request_type: "flow" } });
                 } else {
                     existingConnection.metrics.normal += connection.doc_count;
                 }
@@ -149,7 +162,7 @@ app.listen(8081, function () {
 });
 
 function addTagsToNodeList(nodes, ipsToTags) {
-    nodes.forEach(function(node) {
+    nodes.forEach(function (node) {
         tagForIP = ipsToTags[node.name];
         if (tagForIP !== undefined) {
             node.displayName = tagForIP;
