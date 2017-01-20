@@ -48,13 +48,6 @@ app.get('/query-elasticsearch', function (req, res) {
     requestsByNode = getRequestsByNode(elastic_ip);
     requestsByNode.then(function (response) {
 
-        tagsWithIPs = getTagsWithIPs(elastic_ip);
-        tagsWithIPs.then(function (response) {
-            response.aggregations.nodes.buckets.forEach(function (node) {
-                ipsToTags[node.ipAddresses.buckets[0].key] = node.key;
-            }, this);
-        }).catch(console.trace);
-
         request_nodes = response.aggregations.nodes.buckets;
         request_nodes.forEach(function (node) {
             // add source node to the node list if not already in it
@@ -106,7 +99,7 @@ app.get('/query-elasticsearch', function (req, res) {
                 existingConnection = connections.find((c) => { return (c.source == connection.key && c.target == nodeIPAddress); });
                 if (existingConnection === undefined) {
                     connections.push({ source: connection.key, target: nodeIPAddress, metrics: { normal: connection.doc_count }, metadata: { request_type: "flow" } });
-                } 
+                }
                 // add source node to the node list if not already in it
                 addOrUpdateNodeInList(connection.key, nodes);
             }, this);
@@ -117,14 +110,21 @@ app.get('/query-elasticsearch', function (req, res) {
                 existingConnection = connections.find((c) => { return (c.source == nodeIPAddress && c.target == connection.key); });
                 if (existingConnection === undefined) {
                     connections.push({ source: nodeIPAddress, target: connection.key, metrics: { normal: connection.doc_count }, metadata: { request_type: "flow" } });
-                } 
+                }
                 // add destination node to the node list if not already in it
                 addOrUpdateNodeInList(connection.key, nodes);
             }, this);
 
         }, this);
 
-        addTagsToNodeList(nodes, ipsToTags);
+        tagsWithIPs = getTagsWithIPs(elastic_ip);
+        tagsWithIPs.then(function (response) {
+            response.aggregations.nodes.buckets.forEach(function (node) {
+                ipsToTags[node.ipAddresses.buckets[0].key] = node.key;
+            }, this);
+            addTagsToNodeList(nodes, ipsToTags);
+        }).catch(console.trace);
+
 
         vizceral_data = {
             // Which graph renderer to use for this graph (currently only 'global' and 'region')
@@ -150,7 +150,7 @@ app.get('/query-elasticsearch', function (req, res) {
                 }
             ]
         };
-        console.log(`data that will be sent to the user '${util.inspect(vizceral_data, { depth: null })}'`);
+        // console.log(`data that will be sent to the user '${util.inspect(vizceral_data, { depth: null })}'`);
         res.send(vizceral_data);
 
     }).catch(console.trace);
@@ -162,7 +162,9 @@ app.listen(8081, function () {
 
 function addTagsToNodeList(nodes, ipsToTags) {
     nodes.forEach(function (node) {
+        console.log(`looking for node '${node.name}'`)
         tagForIP = ipsToTags[node.name];
+        console.log(`found tag '${tagForIP}'`)
         if (tagForIP !== undefined) {
             node.displayName = tagForIP;
         }
