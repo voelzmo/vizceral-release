@@ -69,7 +69,7 @@ app.get('/query-elasticsearch', function (req, res) {
                 connectionMetrics = connection.transactionStatus.buckets.reduce((metrics, status) => {
                     if (status.key == "OK") {
                         metrics.normal += status.doc_count;
-                    } else if (status.key == "ERROR") {
+                    } else if (status.key == "Error") {
                         metrics.error += status.doc_count;
                     } else {
                         console.log(`found unhandled transaction status '${status.key}'`)
@@ -86,14 +86,17 @@ app.get('/query-elasticsearch', function (req, res) {
                 connectionMetrics = connection.transactionStatus.buckets.reduce((metrics, status) => {
                     if (status.key == "OK") {
                         metrics.normal += status.doc_count;
-                    } else if (status.key == "ERROR") {
+                    } else if (status.key == "Error") {
                         metrics.error += status.doc_count;
                     } else {
                         console.log(`found unhandled transaction status '${status.key}'`)
                     }
                     return metrics;
                 }, { normal: 0, error: 0 });
+                existingConnection = connections.find((c) => { return (c.source == connection.key && c.target == nodeIPAddress); });
+                if (existingConnection === undefined) {
                 connections.push({ source: nodeIPAddress, target: connection.key, metrics: connectionMetrics, metadata: { request_type: "http" } });
+                }
                 // add destination node to the node list if not already in it
                 addOrUpdateNodeInList(connection.key, nodes);
             }, this);
@@ -201,21 +204,21 @@ function getRequestsByNode(elastic_ip) {
         index: 'packetbeat-*',
         body: {
             "size": 0,
-            // "query": {
-            //     "bool": {
-            //         "filter": {
-            //             "bool": {
-            //                 "must": [
-            //                     {
-            //                         "range": {
-            //                             "@timestamp": { "gt": "now-1h" }
-            //                         }
-            //                     }
-            //                 ]
-            //             }
-            //         }
-            //     }
-            // },
+            "query": {
+                "bool": {
+                    "filter": {
+                        "bool": {
+                            "must": [
+                                {
+                                    "range": {
+                                        "@timestamp": { "gt": "now-1h" }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
             "aggregations": {
                 "nodes": {
                     "terms": { "field": "tags" },
