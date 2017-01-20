@@ -75,7 +75,7 @@ app.get('/query-elasticsearch', function (req, res) {
                         console.log(`found unhandled transaction status '${status.key}'`)
                     }
                     return metrics;
-                }, { normal: 0, error: 0 });
+                }, { normal: 0, danger: 0 });
                 existingConnection = connections.find((c) => { return (c.source == connection.key && c.target == nodeIPAddress); });
                 if (existingConnection === undefined) {
                     connections.push({ source: connection.key, target: nodeIPAddress, metrics: connectionMetrics, metadata: { request_type: "http" } });
@@ -95,7 +95,7 @@ app.get('/query-elasticsearch', function (req, res) {
                         console.log(`found unhandled transaction status '${status.key}'`)
                     }
                     return metrics;
-                }, { normal: 0, error: 0 });
+                }, { normal: 0, danger: 0 });
                 existingConnection = connections.find((c) => { return (c.source == connection.key && c.target == nodeIPAddress); });
                 if (existingConnection === undefined) {
                     connections.push({ source: nodeIPAddress, target: connection.key, metrics: connectionMetrics, metadata: { request_type: "http" } });
