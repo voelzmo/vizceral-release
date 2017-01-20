@@ -106,9 +106,7 @@ app.get('/query-elasticsearch', function (req, res) {
                 existingConnection = connections.find((c) => { return (c.source == connection.key && c.target == nodeIPAddress); });
                 if (existingConnection === undefined) {
                     connections.push({ source: connection.key, target: nodeIPAddress, metrics: { normal: connection.doc_count }, metadata: { request_type: "flow" } });
-                } else {
-                    existingConnection.metrics.normal += connection.doc_count;
-                }
+                } 
                 // add source node to the node list if not already in it
                 addOrUpdateNodeInList(connection.key, nodes);
             }, this);
@@ -119,9 +117,7 @@ app.get('/query-elasticsearch', function (req, res) {
                 existingConnection = connections.find((c) => { return (c.source == nodeIPAddress && c.target == connection.key); });
                 if (existingConnection === undefined) {
                     connections.push({ source: nodeIPAddress, target: connection.key, metrics: { normal: connection.doc_count }, metadata: { request_type: "flow" } });
-                } else {
-                    existingConnection.metrics.normal += connection.doc_count;
-                }
+                } 
                 // add destination node to the node list if not already in it
                 addOrUpdateNodeInList(connection.key, nodes);
             }, this);
