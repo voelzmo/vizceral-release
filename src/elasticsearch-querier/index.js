@@ -45,20 +45,17 @@ app.get('/query-elasticsearch', function (req, res) {
     }];
     connections = [];
 
-    tagsWithIPs = getTagsWithIPs(elastic_ip);
-    tagsWithIPs.then(function (response) {
-        // console.log(util.inspect(response, { depth: null }));
-        response.aggregations.nodes.buckets.forEach(function (node) {
-            ipsToTags[node.ipAddresses.buckets[0].key] = node.key;
-        }, this);
-        // console.log(util.inspect(ipsToTags, { depth: null }));
-    }).catch(console.trace);;
-
-
     requestsByNode = getRequestsByNode(elastic_ip);
     requestsByNode.then(function (response) {
+
+        tagsWithIPs = getTagsWithIPs(elastic_ip);
+        tagsWithIPs.then(function (response) {
+            response.aggregations.nodes.buckets.forEach(function (node) {
+                ipsToTags[node.ipAddresses.buckets[0].key] = node.key;
+            }, this);
+        }).catch(console.trace);
+
         request_nodes = response.aggregations.nodes.buckets;
-        // console.log(util.inspect(request_nodes, { depth: null }));
         request_nodes.forEach(function (node) {
             // add source node to the node list if not already in it
             nodeIPAddress = node.ipAddresses.buckets[0].key;
