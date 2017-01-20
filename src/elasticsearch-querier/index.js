@@ -70,13 +70,16 @@ app.get('/query-elasticsearch', function (req, res) {
                     if (status.key == "OK") {
                         metrics.normal += status.doc_count;
                     } else if (status.key == "Error") {
-                        metrics.error += status.doc_count;
+                        metrics.danger += status.doc_count;
                     } else {
                         console.log(`found unhandled transaction status '${status.key}'`)
                     }
                     return metrics;
                 }, { normal: 0, error: 0 });
-                connections.push({ source: connection.key, target: nodeIPAddress, metrics: connectionMetrics, metadata: { request_type: "http" } });
+                existingConnection = connections.find((c) => { return (c.source == connection.key && c.target == nodeIPAddress); });
+                if (existingConnection === undefined) {
+                    connections.push({ source: connection.key, target: nodeIPAddress, metrics: connectionMetrics, metadata: { request_type: "http" } });
+                }
                 // add source node to the node list if not already in it
                 addOrUpdateNodeInList(connection.key, nodes);
             }, this);
@@ -87,7 +90,7 @@ app.get('/query-elasticsearch', function (req, res) {
                     if (status.key == "OK") {
                         metrics.normal += status.doc_count;
                     } else if (status.key == "Error") {
-                        metrics.error += status.doc_count;
+                        metrics.danger += status.doc_count;
                     } else {
                         console.log(`found unhandled transaction status '${status.key}'`)
                     }
@@ -95,7 +98,7 @@ app.get('/query-elasticsearch', function (req, res) {
                 }, { normal: 0, error: 0 });
                 existingConnection = connections.find((c) => { return (c.source == connection.key && c.target == nodeIPAddress); });
                 if (existingConnection === undefined) {
-                connections.push({ source: nodeIPAddress, target: connection.key, metrics: connectionMetrics, metadata: { request_type: "http" } });
+                    connections.push({ source: nodeIPAddress, target: connection.key, metrics: connectionMetrics, metadata: { request_type: "http" } });
                 }
                 // add destination node to the node list if not already in it
                 addOrUpdateNodeInList(connection.key, nodes);
