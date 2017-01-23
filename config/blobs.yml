@@ -1,11 +1,14 @@
 nginx/headers-more-nginx-module-0.32.tar.gz:
   size: 28033
+  object_id: 11a7292e-354c-43b4-72c3-fb52ad5f356b
   sha: aadb7f0b6c5b5b9cae2af72984e03dc2fbf3fecb
 nginx/nginx-1.11.8.tar.gz:
   size: 964918
+  object_id: dd8b3afc-07a1-41e8-64a8-cc520d89b4a2
   sha: 6946c4304aba1e8eef375fc620f569cdd3e3f080
 nginx/pcre-8.40.tar.gz:
   size: 2065161
+  object_id: 0124ff33-0367-4aa0-6c23-e862aaac438d
   sha: 10384eb3d411794cc15f55b9d837d3f69e35391e
 nodejs/node-v6.9.3-linux-x64.tar.gz:
   size: 13927968
