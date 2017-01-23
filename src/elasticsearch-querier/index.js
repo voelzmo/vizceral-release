@@ -46,9 +46,10 @@ app.get('/query-elasticsearch', function (req, res) {
     connections = [];
 
     requestsByNode = getRequestsByNode(elastic_ip);
-    requestsByNode.then(function (response) {
+    tagsWithIPs = getTagsWithIPs(elastic_ip);
+    Promise.all([requestsByNode, tagsWithIPs]).then(function (responses) {
 
-        request_nodes = response.aggregations.nodes.buckets;
+        request_nodes = responses[0].aggregations.nodes.buckets;
         request_nodes.forEach(function (node) {
             // add source node to the node list if not already in it
             nodeIPAddress = node.ipAddresses.buckets[0].key;
@@ -117,13 +118,11 @@ app.get('/query-elasticsearch', function (req, res) {
 
         }, this);
 
-        tagsWithIPs = getTagsWithIPs(elastic_ip);
-        tagsWithIPs.then(function (response) {
-            response.aggregations.nodes.buckets.forEach(function (node) {
-                ipsToTags[node.ipAddresses.buckets[0].key] = node.key;
-            }, this);
-            addTagsToNodeList(nodes, ipsToTags);
-        }).catch(console.trace);
+
+        responses[1].aggregations.nodes.buckets.forEach(function (node) {
+            ipsToTags[node.ipAddresses.buckets[0].key] = node.key;
+        }, this);
+        addTagsToNodeList(nodes, ipsToTags);
 
 
         vizceral_data = {
@@ -162,9 +161,7 @@ app.listen(8081, function () {
 
 function addTagsToNodeList(nodes, ipsToTags) {
     nodes.forEach(function (node) {
-        console.log(`looking for node '${node.name}'`)
         tagForIP = ipsToTags[node.name];
-        console.log(`found tag '${tagForIP}'`)
         if (tagForIP !== undefined) {
             node.displayName = tagForIP;
         }
