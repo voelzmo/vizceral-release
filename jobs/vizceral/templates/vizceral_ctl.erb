@@ -2,6 +2,7 @@
 
 RUN_DIR=/var/vcap/sys/run/vizceral
 LOG_DIR=/var/vcap/sys/log/vizceral
+JOB_DIR=/var/vcap/jobs/vizceral
 PIDFILE=${RUN_DIR}/pid
 
 source /var/vcap/packages/common/utils.sh
@@ -15,8 +16,8 @@ case $1 in
     chown -R vcap:vcap $RUN_DIR $LOG_DIR
 
     /var/vcap/packages/nginx/sbin/nginx \
-      -g "pid $PIDFILE; error_log /var/vcap/sys/log/vizceral/nginx_error.log info;" \
-      -c $CONFIG_FILE \
+      -g "pid ${PIDFILE}; error_log ${LOG_DIR}/nginx_error.log info;\
+      -c ${JOB_DIR}/config/nginx.conf \
     1>>$LOG_DIR/stdout.log \
     2>>$LOG_DIR/stderr.log
 
