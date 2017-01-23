@@ -4,6 +4,7 @@
   "description": "Vizceral example app",
   "author": "Justin Reynolds <jreynolds@netflix.com>",
   "scripts": {
+    "build": "webpack -p",
     "clean": "rimraf dist && mkdirp dist",
     "lint": "eslint src --ext .js --ext .jsx --fix",
     "copy:fonts": "cpx \"./node_modules/source-sans-pro/**/*\" ./dist/fonts",
