@@ -50,6 +50,7 @@ app.get('/query-elasticsearch', function (req, res) {
     Promise.all([requestsByNode, tagsWithIPs]).then(function (responses) {
 
         request_nodes = responses[0].aggregations.nodes.buckets;
+        console.log(util.inspect(request_nodes, { depth: null }));
         request_nodes.forEach(function (node) {
             // add source node to the node list if not already in it
             nodeIPAddress = node.ipAddresses.buckets[0].key;
@@ -138,6 +139,17 @@ app.get('/query-elasticsearch', function (req, res) {
                     renderer: 'region',
                     layout: 'ltrTree',
                     // OPTIONAL Override the default layout used for the renderer.
+                    name: 'INTERNET',
+                    // Unix timestamp. Only checked at this level of nodes. Last time the data was updated (Needed because the client could be passed stale data when loaded)
+                    updated: Date.now(),
+                    metadata: {},
+                    // The maximum volume seen recently to relatively measure particle density
+                    maxVolume: 100000
+                },
+                {
+                    renderer: 'region',
+                    layout: 'ltrTree',
+                    // OPTIONAL Override the default layout used for the renderer.
                     name: 'bosh-region',
                     // Unix timestamp. Only checked at this level of nodes. Last time the data was updated (Needed because the client could be passed stale data when loaded)
                     updated: Date.now(),
@@ -146,6 +158,17 @@ app.get('/query-elasticsearch', function (req, res) {
                     maxVolume: 100000,
                     nodes: nodes,
                     connections: connections
+                }
+            ],
+            connections: [
+                {
+                    source: "INTERNET",
+                    target: "bosh-region",
+                    metrics: {
+                        normal: 42,
+                    },
+                    notices: [],
+                    class: "normal"
                 }
             ]
         };

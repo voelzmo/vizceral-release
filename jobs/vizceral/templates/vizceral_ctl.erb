@@ -16,7 +16,7 @@ case $1 in
     chown -R vcap:vcap $RUN_DIR $LOG_DIR
 
     /var/vcap/packages/nginx/sbin/nginx \
-      -g "pid ${PIDFILE}; error_log ${LOG_DIR}/nginx_error.log info;\
+      -g "pid ${PIDFILE}; error_log ${LOG_DIR}/nginx_error.log info;"\
       -c ${JOB_DIR}/config/nginx.conf \
     1>>$LOG_DIR/stdout.log \
     2>>$LOG_DIR/stderr.log
