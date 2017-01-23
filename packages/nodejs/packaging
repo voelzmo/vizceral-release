@@ -1,4 +1,6 @@
 set -e
 
-tar -xzvf nodejs/node-v6.9.3-linux-x64.tar.gz
-cp -a node-v6.9.3-linux-x64/* ${BOSH_INSTALL_TARGET}
+NODEJS_VERSION=6.9.3
+
+tar -xzvf nodejs/node-v${NODEJS_VERSION}-linux-x64.tar.gz
+cp -a node-v${NODEJS_VERSION}-linux-x64/* ${BOSH_INSTALL_TARGET}

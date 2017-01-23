@@ -1,0 +1,9 @@
+---
+name: nginx
+
+dependencies: []
+
+files:
+  - nginx/nginx-1.11.8.tar.gz
+  - nginx/pcre-8.40.tar.gz
+  - nginx/headers-more-nginx-module-0.32.tar.gz

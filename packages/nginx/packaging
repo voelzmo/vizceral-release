@@ -1,0 +1,33 @@
+set -e -x
+
+NGINX_VERSION=1.11.8
+PCRE_VERSION=8.40
+HEADERS_MORE_VERSION=0.32
+
+echo "Extracting pcre..."
+tar xzvf nginx/pcre-${PCRE_VERSION}.tar.gz
+
+echo "Extracting headers-more module..."
+tar xzvf nginx/headers-more-nginx-module-${HEADERS_MORE_VERSION}.tar.gz
+
+echo "Extracting nginx..."
+tar xzvf nginx/nginx-${NGINX_VERSION}.tar.gz
+
+echo "Building nginx..."
+
+pushd nginx-${NGINX_VERSION}
+  ./configure \
+    --with-ipv6 \
+    --with-debug \
+    --prefix=${BOSH_INSTALL_TARGET} \
+    --with-pcre=../pcre-${PCRE_VERSION} \
+    --add-module=../headers-more-nginx-module-${HEADERS_MORE_VERSION} \
+    --with-http_ssl_module \
+    --with-http_dav_module \
+    --with-http_realip_module \
+    --with-http_gunzip_module \
+    --with-http_v2_module
+
+  make
+  make install
+popd

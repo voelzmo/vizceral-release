@@ -3,7 +3,8 @@ name: vizceral
 
 templates:
   vizceral_ctl.erb: bin/vizceral_ctl
+  nginx.conf.erb: config/nginx.conf
 
-packages: [vizceral, nodejs, common]
+packages: [vizceral, nodejs, nginx, common]
 
 properties: {}

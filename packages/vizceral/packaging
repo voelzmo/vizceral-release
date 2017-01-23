@@ -1,7 +1,7 @@
 set -e
 
-pushd vizceral
+cd vizceral
 PATH=/var/vcap/packages/nodejs/bin/:$PATH npm install
-popd
+PATH=/var/vcap/packages/nodejs/bin/:$PATH npm run build
 
-cp -a vizceral/. ${BOSH_INSTALL_TARGET}
+cp -a vizceral/dist ${BOSH_INSTALL_TARGET}

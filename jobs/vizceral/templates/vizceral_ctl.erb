@@ -14,15 +14,12 @@ case $1 in
     mkdir -p $RUN_DIR $LOG_DIR
     chown -R vcap:vcap $RUN_DIR $LOG_DIR
 
-    echo $$ > $PIDFILE
-
-    pushd /var/vcap/packages/vizceral/
-
-    PATH=/var/vcap/packages/nodejs/bin/:$PATH exec npm run dev \
+    /var/vcap/packages/nginx/sbin/nginx \
+      -g "pid $PIDFILE; error_log /var/vcap/sys/log/vizceral/nginx_error.log info;" \
+      -c $CONFIG_FILE \
     1>>$LOG_DIR/stdout.log \
     2>>$LOG_DIR/stderr.log
 
-    popd
     ;;
 
   stop)
