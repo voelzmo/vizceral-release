@@ -229,7 +229,7 @@ function getRequestsByNode(elastic_ip) {
                             "must": [
                                 {
                                     "range": {
-                                        "@timestamp": { "gt": "now-1m" }
+                                        "@timestamp": { "gt": "now-10m" }
                                     }
                                 }
                             ]
