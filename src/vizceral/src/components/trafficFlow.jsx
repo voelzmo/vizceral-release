@@ -163,7 +163,7 @@ class TrafficFlow extends React.Component {
     this.checkInitialRoute();
     this.traffic = { nodes: [], connections: [] };
     this.updateWithNewTrafficData();
-    setInterval(this.updateWithNewTrafficData, 10 * 1000);
+    setInterval(this.updateWithNewTrafficData.bind(this), 10 * 1000);
 
     // Listen for changes to the stores
     filterStore.addChangeListener(this.filtersChanged);
