@@ -192,7 +192,7 @@ function addTagsToNodeList(nodes, ipsToTags) {
 }
 
 function getTagsWithIPs(elastic_ip) {
-    var client = elasticsearch.Client({ host: `${elastic_ip}:9200`, apiVersion: "2.3" });
+    var client = elasticsearch.Client({ host: `${elastic_ip}:9200`});
 
     return client.search({
         index: 'packetbeat-*',
@@ -216,7 +216,7 @@ function getTagsWithIPs(elastic_ip) {
 }
 
 function getRequestsByNode(elastic_ip) {
-    var client = elasticsearch.Client({ host: `${elastic_ip}:9200`, apiVersion: "2.3" });
+    var client = elasticsearch.Client({ host: `${elastic_ip}:9200`});
 
     return client.search({
         index: 'packetbeat-*',
