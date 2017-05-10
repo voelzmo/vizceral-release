@@ -50,7 +50,7 @@ app.get('/query-elasticsearch', function (req, res) {
     Promise.all([requestsByNode, tagsWithIPs]).then(function (responses) {
 
         request_nodes = responses[0].aggregations.nodes.buckets;
-        console.log(util.inspect(request_nodes, { depth: null }));
+        // console.log(util.inspect(request_nodes, { depth: null }));
         request_nodes.forEach(function (node) {
             // add source node to the node list if not already in it
             nodeIPAddress = node.ipAddresses.buckets[0].key;
@@ -119,7 +119,7 @@ app.get('/query-elasticsearch', function (req, res) {
 
         }, this);
 
-
+        // console.log(util.inspect(responses[1], { depth: null }));
         responses[1].aggregations.nodes.buckets.forEach(function (node) {
             ipsToTags[node.ipAddresses.buckets[0].key] = node.key;
         }, this);
@@ -203,10 +203,10 @@ function getTagsWithIPs(elastic_ip) {
             },
             "aggregations": {
                 "nodes": {
-                    "terms": { "field": "tags" },
+                    "terms": { "field": "tags", "size": 500 },
                     "aggregations": {
                         "ipAddresses": {
-                            "terms": { "field": "fields.ip" }
+                            "terms": { "field": "fields.ip", "size": 500 }
                         }
                     }
                 }
@@ -239,10 +239,10 @@ function getRequestsByNode(elastic_ip) {
             },
             "aggregations": {
                 "nodes": {
-                    "terms": { "field": "tags" },
+                    "terms": { "field": "tags", "size": 500 },
                     "aggregations": {
                         "ipAddresses": {
-                            "terms": { "field": "fields.ip" }
+                            "terms": { "field": "fields.ip", "size": 500 }
                         },
                         "flows": {
                             "filter": {
@@ -267,10 +267,10 @@ function getRequestsByNode(elastic_ip) {
                             },
                             "aggregations": {
                                 "sources": {
-                                    "terms": { "field": "source.ip" }
+                                    "terms": { "field": "source.ip", "size": 500 }
                                 },
                                 "destinations": {
-                                    "terms": { "field": "dest.ip" }
+                                    "terms": { "field": "dest.ip", "size": 500 }
                                 }
                             }
                         },
@@ -294,12 +294,10 @@ function getRequestsByNode(elastic_ip) {
                             },
                             "aggregations": {
                                 "sources": {
-                                    "terms": {
-                                        "field": "client_ip"
-                                    },
+                                    "terms": { "field": "client_ip", "size": 500 },
                                     "aggregations": {
                                         "transactionStatus": {
-                                            "terms": { "field": "status" }
+                                            "terms": { "field": "status", "size": 500 }
                                         }
                                     }
                                 }
@@ -325,12 +323,10 @@ function getRequestsByNode(elastic_ip) {
                             },
                             "aggregations": {
                                 "destinations": {
-                                    "terms": {
-                                        "field": "ip"
-                                    },
+                                    "terms": { "field": "ip", "size": 500 },
                                     "aggregations": {
                                         "transactionStatus": {
-                                            "terms": { "field": "status" }
+                                            "terms": { "field": "status", "size": 500 }
                                         }
                                     }
                                 }
